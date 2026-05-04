@@ -1,46 +1,45 @@
 package com.dsproject.client.gui;
 
 import com.dsproject.client.controller.ClientController;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
 
-import javax.swing.*;
-import java.awt.*;
 import java.time.LocalDateTime;
 
 public class AddAppointmentView {
 
-    public AddAppointmentView(ClientController controller) {
+    public AddAppointmentView(Stage stage, ClientController controller) {
 
-        JFrame frame = new JFrame("Add Appointment");
+        TextField doctorField = new TextField();
+        TextField dateField = new TextField();
+        TextField durationField = new TextField();
+        TextField costField = new TextField();
 
-        JTextField doctorField = new JTextField(15);
-        JTextField dateField = new JTextField(15); // format: 2026-05-10T10:00
-        JTextField durationField = new JTextField(15);
-        JTextField costField = new JTextField(15);
+        Button addBtn = new Button("Add");
 
-        JButton addBtn = new JButton("Add");
+        GridPane grid = new GridPane();
+        grid.setPadding(new Insets(20));
+        grid.setHgap(10);
+        grid.setVgap(10);
 
-        JPanel panel = new JPanel(new GridLayout(5, 2));
+        grid.add(new Label("Doctor Name:"), 0, 0);
+        grid.add(doctorField, 1, 0);
 
-        panel.add(new JLabel("Doctor Name:"));
-        panel.add(doctorField);
+        grid.add(new Label("DateTime (yyyy-MM-ddTHH:mm):"), 0, 1);
+        grid.add(dateField, 1, 1);
 
-        panel.add(new JLabel("DateTime (yyyy-MM-ddTHH:mm):"));
-        panel.add(dateField);
+        grid.add(new Label("Duration:"), 0, 2);
+        grid.add(durationField, 1, 2);
 
-        panel.add(new JLabel("Duration:"));
-        panel.add(durationField);
+        grid.add(new Label("Cost:"), 0, 3);
+        grid.add(costField, 1, 3);
 
-        panel.add(new JLabel("Cost:"));
-        panel.add(costField);
+        grid.add(addBtn, 1, 4);
 
-        panel.add(addBtn);
-
-        frame.add(panel);
-        frame.setSize(400, 250);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
-
-        addBtn.addActionListener(e -> {
+        addBtn.setOnAction(e -> {
             try {
                 String doctor = doctorField.getText();
                 LocalDateTime date = LocalDateTime.parse(dateField.getText());
@@ -50,14 +49,23 @@ public class AddAppointmentView {
                 int id = controller.addAppointment(doctor, date, duration, cost);
 
                 if (id != -1) {
-                    JOptionPane.showMessageDialog(frame, "Appointment added!");
+                    new Alert(Alert.AlertType.INFORMATION, "Appointment added!").show();
+                    doctorField.clear();
+                    dateField.clear();
+                    durationField.clear();
+                    costField.clear();
                 } else {
-                    JOptionPane.showMessageDialog(frame, "Failed!");
+                    new Alert(Alert.AlertType.ERROR, "Failed!").show();
                 }
 
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(frame, "Invalid input!");
+                new Alert(Alert.AlertType.ERROR, "Invalid input!").show();
             }
         });
+
+        Scene scene = new Scene(grid, 350, 250);
+        stage.setTitle("Add Appointment");
+        stage.setScene(scene);
+        stage.show();
     }
 }

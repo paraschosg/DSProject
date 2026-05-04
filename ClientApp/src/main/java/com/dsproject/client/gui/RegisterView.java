@@ -2,89 +2,71 @@ package com.dsproject.client.gui;
 
 import com.dsproject.client.controller.ClientController;
 import com.dsproject.server.models.User;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
 
 public class RegisterView {
 
-    public RegisterView(ClientController controller) {
+    public RegisterView(Stage stage, ClientController controller) {
 
-        JFrame frame = new JFrame("Register");
-        frame.setSize(400, 350);
-        frame.setLocationRelativeTo(null);
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        TextField nameField = new TextField();
+        TextField amkaField = new TextField();
+        TextField phoneField = new TextField();
+        TextField emailField = new TextField();
+        TextField usernameField = new TextField();
+        PasswordField passwordField = new PasswordField();
 
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
+        ComboBox<String> roleBox = new ComboBox<>();
+        roleBox.getItems().addAll("patient", "admin");
+        roleBox.setValue("patient");
 
-        JLabel title = new JLabel("Create Account", JLabel.CENTER);
-        title.setFont(new Font("Arial", Font.BOLD, 18));
-        mainPanel.add(title, BorderLayout.NORTH);
+        Button registerBtn = new Button("Register");
 
-        JPanel form = new JPanel(new GridLayout(7, 2, 10, 10));
+        GridPane grid = new GridPane();
+        grid.setPadding(new Insets(20));
+        grid.setHgap(10);
+        grid.setVgap(10);
 
-        JTextField nameField = new JTextField();
-        JTextField amkaField = new JTextField();
-        JTextField phoneField = new JTextField();
-        JTextField emailField = new JTextField();
-        JTextField usernameField = new JTextField();
-        JPasswordField passwordField = new JPasswordField();
+        grid.add(new Label("Full Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
 
-        JComboBox<String> roleBox = new JComboBox<>(new String[]{"patient", "admin"});
+        grid.add(new Label("AMKA:"), 0, 1);
+        grid.add(amkaField, 1, 1);
 
-        form.add(new JLabel("Full Name:"));
-        form.add(nameField);
+        grid.add(new Label("Phone:"), 0, 2);
+        grid.add(phoneField, 1, 2);
 
-        form.add(new JLabel("AMKA:"));
-        form.add(amkaField);
+        grid.add(new Label("Email:"), 0, 3);
+        grid.add(emailField, 1, 3);
 
-        form.add(new JLabel("Phone:"));
-        form.add(phoneField);
+        grid.add(new Label("Username:"), 0, 4);
+        grid.add(usernameField, 1, 4);
 
-        form.add(new JLabel("Email:"));
-        form.add(emailField);
+        grid.add(new Label("Password:"), 0, 5);
+        grid.add(passwordField, 1, 5);
 
-        form.add(new JLabel("Username:"));
-        form.add(usernameField);
+        grid.add(new Label("Role:"), 0, 6);
+        grid.add(roleBox, 1, 6);
 
-        form.add(new JLabel("Password:"));
-        form.add(passwordField);
+        grid.add(registerBtn, 1, 7);
 
-        form.add(new JLabel("Role:"));
-        form.add(roleBox);
-
-        mainPanel.add(form, BorderLayout.CENTER);
-
-        JButton registerBtn = new JButton("Register");
-        registerBtn.setFocusPainted(false);
-        registerBtn.setBackground(new Color(70, 130, 180));
-        registerBtn.setForeground(Color.WHITE);
-        registerBtn.setFont(new Font("Arial", Font.BOLD, 14));
-
-        JPanel btnPanel = new JPanel();
-        btnPanel.add(registerBtn);
-
-        mainPanel.add(btnPanel, BorderLayout.SOUTH);
-
-        frame.add(mainPanel);
-        frame.setVisible(true);
-
-        registerBtn.addActionListener(e -> {
+        registerBtn.setOnAction(e -> {
 
             String fullName = nameField.getText();
             String amka = amkaField.getText();
             String phone = phoneField.getText();
             String email = emailField.getText();
             String username = usernameField.getText();
-            String password = new String(passwordField.getPassword());
-            String role = (String) roleBox.getSelectedItem();
+            String password = passwordField.getText();
+            String role = roleBox.getValue();
 
             if (fullName.isEmpty() || amka.isEmpty() || phone.isEmpty()
                     || email.isEmpty() || username.isEmpty() || password.isEmpty()) {
 
-                JOptionPane.showMessageDialog(frame, "Fill all fields!");
+                new Alert(Alert.AlertType.ERROR, "Fill all fields!").show();
                 return;
             }
 
@@ -93,11 +75,16 @@ public class RegisterView {
             boolean success = controller.register(user);
 
             if (success) {
-                JOptionPane.showMessageDialog(frame, "Registered successfully!");
-                frame.dispose();
+                new Alert(Alert.AlertType.INFORMATION, "Registered successfully!").show();
+                new LoginView(stage, controller);
             } else {
-                JOptionPane.showMessageDialog(frame, "User already exists!");
+                new Alert(Alert.AlertType.ERROR, "User already exists!").show();
             }
         });
+
+        Scene scene = new Scene(grid, 350, 400);
+        stage.setTitle("Register");
+        stage.setScene(scene);
+        stage.show();
     }
 }

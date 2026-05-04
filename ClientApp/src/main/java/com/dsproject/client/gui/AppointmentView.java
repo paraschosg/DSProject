@@ -2,94 +2,92 @@ package com.dsproject.client.gui;
 
 import com.dsproject.client.controller.ClientController;
 import com.dsproject.server.models.Appointment;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.stage.Stage;
 
-import javax.swing.*;
-import java.awt.*;
 import java.util.List;
 
 public class AppointmentView {
 
-    public AppointmentView(ClientController controller, String username) {
+    public AppointmentView(Stage stage, ClientController controller, String username) {
 
-        JFrame frame = new JFrame("Appointments");
+        ObservableList<Appointment> data = FXCollections.observableArrayList();
+        ListView<Appointment> listView = new ListView<>(data);
 
-        DefaultListModel<Appointment> model = new DefaultListModel<>();
-        JList<Appointment> list = new JList<>(model);
+        Button refresh = new Button("Refresh");
+        Button book = new Button("Book");
+        Button cancel = new Button("Cancel");
 
-        JButton refresh = new JButton("Refresh");
-        JButton book = new JButton("Book");
-        JButton cancel = new JButton("Cancel");
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(10));
 
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JScrollPane(list), BorderLayout.CENTER);
+        root.setCenter(listView);
 
-        JPanel bottom = new JPanel();
-        bottom.add(refresh);
-        bottom.add(book);
-        bottom.add(cancel);
+        HBox bottom = new HBox(10);
+        bottom.setPadding(new Insets(10));
+        bottom.getChildren().addAll(refresh, book, cancel);
 
-        panel.add(bottom, BorderLayout.SOUTH);
+        root.setBottom(bottom);
 
-        frame.add(panel);
-        frame.setSize(450, 300);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
-
-        refresh.addActionListener(e -> {
-            model.clear();
-
-            System.out.println("Refreshing appointments...");
+        refresh.setOnAction(e -> {
+            data.clear();
 
             List<Appointment> apps = controller.getAvailableAppointments();
 
-            System.out.println("Apps received: " + apps);
-
             if (apps != null) {
-                for (Appointment a : apps) {
-                    System.out.println("Adding: " + a);
-                    model.addElement(a);
-                }
+                data.addAll(apps);
             } else {
-                JOptionPane.showMessageDialog(frame, "No data from server");
+                new Alert(Alert.AlertType.ERROR, "No data from server").show();
             }
         });
 
-        book.addActionListener(e -> {
-            Appointment selected = list.getSelectedValue();
+        book.setOnAction(e -> {
+            Appointment selected = listView.getSelectionModel().getSelectedItem();
 
             if (selected == null) {
-                JOptionPane.showMessageDialog(frame, "Select an appointment first");
+                new Alert(Alert.AlertType.WARNING, "Select an appointment first").show();
                 return;
             }
 
             boolean result = controller.bookAppointment(username, selected.getId());
 
             if (result) {
-                JOptionPane.showMessageDialog(frame, "Booked successfully!");
-                refresh.doClick();
+                new Alert(Alert.AlertType.INFORMATION, "Booked successfully").show();
+                refresh.fire();
             } else {
-                JOptionPane.showMessageDialog(frame, "Booking failed!");
+                new Alert(Alert.AlertType.ERROR, "Booking failed").show();
             }
         });
-        
-        cancel.addActionListener(e -> {
-            Appointment selected = list.getSelectedValue();
+
+        cancel.setOnAction(e -> {
+            Appointment selected = listView.getSelectionModel().getSelectedItem();
 
             if (selected == null) {
-                JOptionPane.showMessageDialog(frame, "Select an appointment first");
+                new Alert(Alert.AlertType.WARNING, "Select an appointment first").show();
                 return;
             }
 
             boolean result = controller.cancelBooking(selected.getId());
 
             if (result) {
-                JOptionPane.showMessageDialog(frame, "Cancelled successfully!");
-                refresh.doClick(); // auto refresh
+                new Alert(Alert.AlertType.INFORMATION, "Cancelled successfully").show();
+                refresh.fire();
             } else {
-                JOptionPane.showMessageDialog(frame, "Cancel failed!");
+                new Alert(Alert.AlertType.ERROR, "Cancel failed").show();
             }
         });
 
-        refresh.doClick();
+        Scene scene = new Scene(root, 400, 300);
+        stage.setTitle("Appointments");
+        stage.setScene(scene);
+        stage.show();
+
+        refresh.fire();
     }
 }

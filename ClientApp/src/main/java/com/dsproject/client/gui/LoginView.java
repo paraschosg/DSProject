@@ -2,66 +2,67 @@ package com.dsproject.client.gui;
 
 import com.dsproject.client.controller.ClientController;
 import com.dsproject.server.models.User;
-
-import javax.swing.*;
-import java.awt.*;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
 
 public class LoginView {
 
-    public LoginView(ClientController controller) {
+    public LoginView(Stage stage, ClientController controller) {
 
-        JFrame frame = new JFrame("Login");
+        TextField usernameField = new TextField();
+        PasswordField passwordField = new PasswordField();
 
-        JTextField usernameField = new JTextField(15);
-        JPasswordField passwordField = new JPasswordField(15);
+        Button loginButton = new Button("Login");
+        Button registerButton = new Button("Register");
 
-        JButton loginButton = new JButton("Login");
-        JButton registerButton = new JButton("Register");
+        GridPane grid = new GridPane();
+        grid.setPadding(new Insets(20));
+        grid.setHgap(10);
+        grid.setVgap(10);
 
-        JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(3,2));
+        grid.add(new Label("Username:"), 0, 0);
+        grid.add(usernameField, 1, 0);
 
-        panel.add(new JLabel("Username:"));
-        panel.add(usernameField);
+        grid.add(new Label("Password:"), 0, 1);
+        grid.add(passwordField, 1, 1);
 
-        panel.add(new JLabel("Password:"));
-        panel.add(passwordField);
+        grid.add(loginButton, 0, 2);
+        grid.add(registerButton, 1, 2);
 
-        panel.add(loginButton);
-        panel.add(registerButton);
+        loginButton.setOnAction(e -> {
 
-        frame.add(panel);
-        frame.setSize(300,200);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setVisible(true);
-
-        loginButton.addActionListener(e -> {
             String user = usernameField.getText();
-            String pass = new String(passwordField.getPassword());
+            String pass = passwordField.getText();
 
             User loggedUser = controller.login(user, pass);
 
             if (loggedUser != null) {
 
-                JOptionPane.showMessageDialog(frame, "Login Successful");
+                new Alert(Alert.AlertType.INFORMATION, "Login Successful").show();
 
                 controller.registerCallback(user);
 
-                frame.dispose();
-
                 if (loggedUser.getRole().equals("admin")) {
-                    new AdminView(controller, user);
+                    new AdminView(stage, controller, user);
                 } else {
-                    new MenuView(controller, user);
+                    new MenuView(stage, controller, user);
                 }
 
             } else {
-                JOptionPane.showMessageDialog(frame, "Login Failed");
+                new Alert(Alert.AlertType.ERROR, "Login Failed").show();
             }
         });
 
-        registerButton.addActionListener(e -> {
-            new RegisterView(controller);
+        registerButton.setOnAction(e -> {
+            new RegisterView(stage, controller);
         });
+
+        Scene scene = new Scene(grid, 300, 200);
+        stage.setTitle("Login");
+        stage.setScene(scene);
+        stage.show();
     }
 }

@@ -2,90 +2,74 @@ package com.dsproject.client.gui;
 
 import com.dsproject.client.controller.ClientController;
 import com.dsproject.server.models.Doctor;
-
-import javax.swing.*;
-import java.awt.*; 
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.stage.Stage;
 
 public class AdminView {
 
-    public AdminView(ClientController controller, String username) {
+    public AdminView(Stage stage, ClientController controller, String username) {
 
-        JFrame frame = new JFrame("Admin Panel");
+        Label title = new Label("Welcome Admin: " + username);
 
-        JLabel title = new JLabel("Welcome Admin: " + username);
-        title.setHorizontalAlignment(SwingConstants.CENTER);
+        Button logoutBtn = new Button("Logout");
 
-        JButton logoutBtn = new JButton("Logout");
+        BorderPane topPanel = new BorderPane();
+        topPanel.setCenter(title);
+        topPanel.setRight(logoutBtn);
 
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.add(title, BorderLayout.CENTER);
-        topPanel.add(logoutBtn, BorderLayout.EAST);
+        TextField nameField = new TextField();
+        TextField specialtyField = new TextField();
+        TextField departmentField = new TextField();
+        TextField phoneField = new TextField();
+        TextField emailField = new TextField();
+        TextField costField = new TextField();
 
-        JTextField nameField = new JTextField(15);
-        JTextField specialtyField = new JTextField(15);
-        JTextField departmentField = new JTextField(15);
-        JTextField phoneField = new JTextField(15);
-        JTextField emailField = new JTextField(15);
-        JTextField costField = new JTextField(15);
+        Button addButton = new Button("Add Doctor");
 
-        JButton addButton = new JButton("Add Doctor");
+        Button viewAppointmentsBtn = new Button("View Appointments");
+        Button addAppointmentBtn = new Button("Add Appointment");
 
-        JButton viewAppointmentsBtn = new JButton("View Appointments");
-        JButton addAppointmentBtn = new JButton("Add Appointment");
+        HBox buttonsPanel = new HBox(10);
+        buttonsPanel.getChildren().addAll(viewAppointmentsBtn, addAppointmentBtn);
 
-        JPanel buttonsPanel = new JPanel();
-        buttonsPanel.add(viewAppointmentsBtn);
-        buttonsPanel.add(addAppointmentBtn);
+        GridPane form = new GridPane();
+        form.setHgap(10);
+        form.setVgap(10);
 
-        JPanel form = new JPanel(new GridLayout(7, 2, 10, 10));
+        form.add(new Label("Doctor Name:"), 0, 0);
+        form.add(nameField, 1, 0);
 
-        form.add(new JLabel("Doctor Name:"));
-        form.add(nameField);
+        form.add(new Label("Specialty:"), 0, 1);
+        form.add(specialtyField, 1, 1);
 
-        form.add(new JLabel("Specialty:"));
-        form.add(specialtyField);
+        form.add(new Label("Department:"), 0, 2);
+        form.add(departmentField, 1, 2);
 
-        form.add(new JLabel("Department:"));
-        form.add(departmentField);
+        form.add(new Label("Phone:"), 0, 3);
+        form.add(phoneField, 1, 3);
 
-        form.add(new JLabel("Phone:"));
-        form.add(phoneField);
+        form.add(new Label("Email:"), 0, 4);
+        form.add(emailField, 1, 4);
 
-        form.add(new JLabel("Email:"));
-        form.add(emailField);
+        form.add(new Label("Visit Cost:"), 0, 5);
+        form.add(costField, 1, 5);
 
-        form.add(new JLabel("Visit Cost:"));
-        form.add(costField);
+        form.add(addButton, 1, 6);
 
-        form.add(new JLabel(""));
-        form.add(addButton);
+        VBox main = new VBox(15);
+        main.setPadding(new Insets(15));
+        main.getChildren().addAll(topPanel, buttonsPanel, form);
 
-        JPanel main = new JPanel(new BorderLayout(10, 10));
-        main.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        logoutBtn.setOnAction(e -> new LoginView(stage, controller));
 
-        main.add(topPanel, BorderLayout.NORTH);
-        main.add(buttonsPanel, BorderLayout.CENTER);
-        main.add(form, BorderLayout.SOUTH);
+        viewAppointmentsBtn.setOnAction(e -> new AppointmentView(stage, controller, username));
 
-        frame.add(main);
-        frame.setSize(500, 450);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        addAppointmentBtn.setOnAction(e -> new AddAppointmentView(stage, controller));
 
-        logoutBtn.addActionListener(e -> {
-            frame.dispose();
-            new LoginView(controller);
-        });
-
-        viewAppointmentsBtn.addActionListener(e -> {
-            new AppointmentView(controller, username);
-        });
-
-        addAppointmentBtn.addActionListener(e -> {
-            new AddAppointmentView(controller);
-        });
-
-        addButton.addActionListener(e -> {
+        addButton.setOnAction(e -> {
 
             String name = nameField.getText();
             String specialty = specialtyField.getText();
@@ -97,7 +81,7 @@ public class AdminView {
             if (name.isEmpty() || specialty.isEmpty() || department.isEmpty()
                     || phone.isEmpty() || email.isEmpty() || costText.isEmpty()) {
 
-                JOptionPane.showMessageDialog(frame, "Fill all fields!");
+                new Alert(Alert.AlertType.ERROR, "Fill all fields!").show();
                 return;
             }
 
@@ -106,7 +90,7 @@ public class AdminView {
             try {
                 cost = Double.parseDouble(costText);
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(frame, "Cost must be a number!");
+                new Alert(Alert.AlertType.ERROR, "Cost must be a number!").show();
                 return;
             }
 
@@ -122,18 +106,23 @@ public class AdminView {
             boolean result = controller.addDoctor(doctor, "admin");
 
             if (result) {
-                JOptionPane.showMessageDialog(frame, "Doctor added!");
+                new Alert(Alert.AlertType.INFORMATION, "Doctor added!").show();
 
-                nameField.setText("");
-                specialtyField.setText("");
-                departmentField.setText("");
-                phoneField.setText("");
-                emailField.setText("");
-                costField.setText("");
+                nameField.clear();
+                specialtyField.clear();
+                departmentField.clear();
+                phoneField.clear();
+                emailField.clear();
+                costField.clear();
 
             } else {
-                JOptionPane.showMessageDialog(frame, "Failed!");
+                new Alert(Alert.AlertType.ERROR, "Failed!").show();
             }
         });
+
+        Scene scene = new Scene(main, 500, 400);
+        stage.setTitle("Admin Panel");
+        stage.setScene(scene);
+        stage.show();
     }
 }

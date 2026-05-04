@@ -2,49 +2,67 @@ package com.dsproject.client.gui;
 
 import com.dsproject.client.controller.ClientController;
 import com.dsproject.server.models.Doctor;
-
-import javax.swing.*;
-import java.awt.*;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
 
 public class AddDoctorView {
 
-    public AddDoctorView(ClientController controller) {
+    public AddDoctorView(Stage stage, ClientController controller) {
 
-        JFrame frame = new JFrame("Add Doctor");
+        TextField nameField = new TextField();
+        TextField specialtyField = new TextField();
 
-        JTextField nameField = new JTextField(15);
-        JTextField specialtyField = new JTextField(15);
+        Button addBtn = new Button("Add");
 
-        JButton addBtn = new JButton("Add");
+        GridPane grid = new GridPane();
+        grid.setPadding(new Insets(20));
+        grid.setHgap(10);
+        grid.setVgap(10);
 
-        JPanel panel = new JPanel(new GridLayout(3, 2));
+        grid.add(new Label("Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
 
-        panel.add(new JLabel("Name:"));
-        panel.add(nameField);
+        grid.add(new Label("Specialty:"), 0, 1);
+        grid.add(specialtyField, 1, 1);
 
-        panel.add(new JLabel("Specialty:"));
-        panel.add(specialtyField);
+        grid.add(addBtn, 1, 2);
 
-        panel.add(addBtn);
+        addBtn.setOnAction(e -> {
 
-        frame.add(panel);
-        frame.setSize(300, 200);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
-
-        addBtn.addActionListener(e -> {
             String name = nameField.getText();
             String specialty = specialtyField.getText();
 
-            Doctor doctor = new Doctor(name, specialty, "General", "1234567890", name.toLowerCase() + "@hospital.com", 100.0);
+            if (name.isEmpty() || specialty.isEmpty()) {
+                new Alert(Alert.AlertType.ERROR, "Fill all fields!").show();
+                return;
+            }
+
+            Doctor doctor = new Doctor(
+                    name,
+                    specialty,
+                    "General",
+                    "1234567890",
+                    name.toLowerCase() + "@mail.com",
+                    50.0
+            );
 
             boolean ok = controller.addDoctor(doctor, "admin");
 
             if (ok) {
-                JOptionPane.showMessageDialog(frame, "Doctor added!");
+                new Alert(Alert.AlertType.INFORMATION, "Doctor added!").show();
+                nameField.clear();
+                specialtyField.clear();
             } else {
-                JOptionPane.showMessageDialog(frame, "Failed!");
+                new Alert(Alert.AlertType.ERROR, "Failed!").show();
             }
         });
+
+        Scene scene = new Scene(grid, 300, 200);
+        stage.setTitle("Add Doctor");
+        stage.setScene(scene);
+        stage.show();
     }
 }

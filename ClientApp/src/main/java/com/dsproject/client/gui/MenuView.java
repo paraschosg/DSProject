@@ -1,73 +1,61 @@
 package com.dsproject.client.gui;
 
-import javax.swing.*;
 import com.dsproject.client.controller.ClientController;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
 public class MenuView {
 
-    public MenuView(ClientController controller, String username) {
+    public MenuView(Stage stage, ClientController controller, String username) {
 
-        JFrame frame = new JFrame("Menu");
+        Label label = new Label("Welcome " + username);
 
-        JLabel label = new JLabel("Welcome " + username);
+        Button appointmentsBtn = new Button("View Appointments");
+        Button deleteBtn = new Button("Delete Account");
+        Button logoutBtn = new Button("Logout");
 
-        JButton appointmentsBtn = new JButton("View Appointments");
-        JButton deleteBtn = new JButton("Delete Account");
-        JButton logoutBtn = new JButton("Logout");
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(20));
 
-        JPanel panel = new JPanel();
-
-        panel.add(label);
-        panel.add(appointmentsBtn);
-        panel.add(deleteBtn);
-        panel.add(logoutBtn);
+        layout.getChildren().addAll(label, appointmentsBtn, deleteBtn, logoutBtn);
 
         if (username.equals("admin")) {
 
-            JButton addDoctorBtn = new JButton("Add Doctor");
-            JButton addAppointmentBtn = new JButton("Add Appointment");
+            Button addDoctorBtn = new Button("Add Doctor");
+            Button addAppointmentBtn = new Button("Add Appointment");
 
-            panel.add(addDoctorBtn);
-            panel.add(addAppointmentBtn);
+            layout.getChildren().addAll(addDoctorBtn, addAppointmentBtn);
 
-            addDoctorBtn.addActionListener(e -> {
-                new AddDoctorView(controller);
-            });
-
-            addAppointmentBtn.addActionListener(e -> {
-                new AddAppointmentView(controller);
-            });
+            addDoctorBtn.setOnAction(e -> new AddDoctorView(stage, controller));
+            addAppointmentBtn.setOnAction(e -> new AddAppointmentView(stage, controller));
         }
 
-        frame.add(panel);
-        frame.setSize(450, 200);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        appointmentsBtn.setOnAction(e -> new AppointmentView(stage, controller, username));
 
-        appointmentsBtn.addActionListener(e -> {
-            new AppointmentView(controller, username);
-        });
+        deleteBtn.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure?");
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    boolean ok = controller.deleteUser(username);
 
-        deleteBtn.addActionListener(e -> {
-
-            int confirm = JOptionPane.showConfirmDialog(frame, "Are you sure?");
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                boolean ok = controller.deleteUser(username);
-
-                if (ok) {
-                    JOptionPane.showMessageDialog(frame, "Account deleted");
-                    frame.dispose();
-                    new LoginView(controller);
-                } else {
-                    JOptionPane.showMessageDialog(frame, "Failed");
+                    if (ok) {
+                        new Alert(Alert.AlertType.INFORMATION, "Account deleted").show();
+                        new LoginView(stage, controller);
+                    } else {
+                        new Alert(Alert.AlertType.ERROR, "Failed").show();
+                    }
                 }
-            }
+            });
         });
 
-        logoutBtn.addActionListener(e -> {
-            frame.dispose();
-            new LoginView(controller);
-        });
+        logoutBtn.setOnAction(e -> new LoginView(stage, controller));
+
+        Scene scene = new Scene(layout, 300, 250);
+        stage.setTitle("Menu");
+        stage.setScene(scene);
+        stage.show();
     }
 }
