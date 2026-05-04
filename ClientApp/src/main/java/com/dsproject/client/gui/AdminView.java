@@ -3,6 +3,7 @@ package com.dsproject.client.gui;
 import com.dsproject.client.controller.ClientController;
 import com.dsproject.server.models.Doctor;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -12,7 +13,8 @@ public class AdminView {
 
     public AdminView(Stage stage, ClientController controller, String username) {
 
-        Label title = new Label("Welcome Admin: " + username);
+        Label title = new Label("Admin Dashboard - " + username);
+        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
         Button logoutBtn = new Button("Logout");
 
@@ -20,20 +22,21 @@ public class AdminView {
         topPanel.setCenter(title);
         topPanel.setRight(logoutBtn);
 
+        Button viewAppointmentsBtn = new Button("View Appointments");
+        Button addAppointmentBtn = new Button("Add Appointment");
+
+        viewAppointmentsBtn.setPrefWidth(180);
+        addAppointmentBtn.setPrefWidth(180);
+
+        HBox buttonsPanel = new HBox(20, viewAppointmentsBtn, addAppointmentBtn);
+        buttonsPanel.setAlignment(Pos.CENTER);
+
         TextField nameField = new TextField();
         TextField specialtyField = new TextField();
         TextField departmentField = new TextField();
         TextField phoneField = new TextField();
         TextField emailField = new TextField();
         TextField costField = new TextField();
-
-        Button addButton = new Button("Add Doctor");
-
-        Button viewAppointmentsBtn = new Button("View Appointments");
-        Button addAppointmentBtn = new Button("Add Appointment");
-
-        HBox buttonsPanel = new HBox(10);
-        buttonsPanel.getChildren().addAll(viewAppointmentsBtn, addAppointmentBtn);
 
         GridPane form = new GridPane();
         form.setHgap(10);
@@ -57,17 +60,32 @@ public class AdminView {
         form.add(new Label("Visit Cost:"), 0, 5);
         form.add(costField, 1, 5);
 
+        Button addButton = new Button("Add Doctor");
+        addButton.setPrefWidth(150);
+
+        form.add(new Label(""), 0, 6);
         form.add(addButton, 1, 6);
 
-        VBox main = new VBox(15);
-        main.setPadding(new Insets(15));
-        main.getChildren().addAll(topPanel, buttonsPanel, form);
+        VBox root = new VBox(20, topPanel, buttonsPanel, form);
+        root.setPadding(new Insets(20));
 
-        logoutBtn.setOnAction(e -> new LoginView(stage, controller));
+        Scene scene = new Scene(root, 550, 450);
 
-        viewAppointmentsBtn.setOnAction(e -> new AppointmentView(stage, controller, username));
+        stage.setTitle("Admin Panel");
+        stage.setScene(scene);
+        stage.show();
 
-        addAppointmentBtn.setOnAction(e -> new AddAppointmentView(stage, controller));
+        logoutBtn.setOnAction(e -> {
+            new LoginView(stage, controller);
+        });
+
+        viewAppointmentsBtn.setOnAction(e -> {
+            new AppointmentView(stage, controller, username);
+        });
+
+        addAppointmentBtn.setOnAction(e -> {
+            new AddAppointmentView(stage, controller);
+        });
 
         addButton.setOnAction(e -> {
 
@@ -119,10 +137,5 @@ public class AdminView {
                 new Alert(Alert.AlertType.ERROR, "Failed!").show();
             }
         });
-
-        Scene scene = new Scene(main, 500, 400);
-        stage.setTitle("Admin Panel");
-        stage.setScene(scene);
-        stage.show();
     }
 }
