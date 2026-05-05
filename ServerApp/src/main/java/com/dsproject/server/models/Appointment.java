@@ -13,6 +13,7 @@ public class Appointment implements Serializable {
     private int duration;
     private double cost;
     private boolean available;
+    private String bookedBy;
 
     public Appointment(int id, String doctorName, LocalDateTime dateTime,
                        int duration, double cost) {
@@ -23,6 +24,10 @@ public class Appointment implements Serializable {
         this.duration = duration;
         this.cost = cost;
         this.available = true;
+    }
+
+    public void setBookedBy(String bookedBy) {
+        this.bookedBy = bookedBy;
     }
 
     public int getId() {
@@ -51,6 +56,10 @@ public class Appointment implements Serializable {
 
     public void setAvailable(boolean available) {
         this.available = available;
+    }
+
+    public String getBookedBy() {
+        return bookedBy;
     }
 
     @Override

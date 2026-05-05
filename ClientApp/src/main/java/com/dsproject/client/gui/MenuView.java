@@ -33,7 +33,7 @@ public class MenuView {
             addAppointmentBtn.setOnAction(e -> new AddAppointmentView(stage, controller));
         }
 
-        appointmentsBtn.setOnAction(e -> new AppointmentView(stage, controller, username));
+        appointmentsBtn.setOnAction(e -> new AppointmentView(stage, controller, username,false));
 
         deleteBtn.setOnAction(e -> {
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure?");

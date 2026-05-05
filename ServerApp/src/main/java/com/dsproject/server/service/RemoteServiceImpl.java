@@ -56,9 +56,21 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteInte
     }
 
     @Override
+    public List<Appointment> getUserAppointments(String username) throws RemoteException {
+        return controller.getAllAppointments().stream()
+                .filter(a -> username.equals(a.getBookedBy()))
+                .toList();
+    }
+
+    @Override
     public boolean bookAppointment(String username, int appointmentId) throws RemoteException {
         System.out.println("Booking request from: " + username);
         return controller.bookAppointment(username, appointmentId);
+    }
+
+    @Override
+    public int getBookingId(String username, int appointmentId) throws RemoteException {
+        return controller.getBookingId(username, appointmentId);
     }
 
     @Override

@@ -71,6 +71,15 @@ public class RMIClient {
         return -1;
     }
 
+    public List<Appointment> getUserAppointments(String username) {
+        try {
+            return remote.getUserAppointments(username);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public boolean bookAppointment(String username, int appointmentId) {
         try {
             return remote.bookAppointment(username, appointmentId);
@@ -78,6 +87,15 @@ public class RMIClient {
             e.printStackTrace();
         }
         return false;
+    }
+
+    public int getBookingId(String username, int appointmentId) {
+        try {
+            return remote.getBookingId(username, appointmentId);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return -1;
+        }
     }
 
     public List<Appointment> getAvailableAppointments() {

@@ -48,7 +48,7 @@ public class LoginView {
                 if (loggedUser.getRole().equals("admin")) {
                     new AdminView(stage, controller, user);
                 } else {
-                    new MenuView(stage, controller, user);
+                    new PatientView(stage, controller, user);
                 }
 
             } else {

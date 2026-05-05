@@ -105,6 +105,10 @@ public class ServerController {
         return list;
     }
 
+    public List<Appointment> getAllAppointments() {
+        return new ArrayList<>(appointments.values());
+    }
+
     public boolean bookAppointment(String username, int appointmentId) {
 
         Appointment ap = appointments.get(appointmentId);
@@ -120,27 +124,32 @@ public class ServerController {
         bookings.put(booking.getId(), booking);
 
         ap.setAvailable(false);
+        ap.setBookedBy(username); // 🔥 ΤΟ ΠΙΟ ΣΗΜΑΝΤΙΚΟ
 
         return true;
+    }
+
+    public int getBookingId(String username, int appointmentId) {
+        for (Booking b : bookings.values()) {
+            if (b.getUsername().equals(username) && b.getAppointmentId() == appointmentId) {
+                return b.getId();
+            }
+        }
+        return -1;
     }
 
     public boolean cancelBooking(int bookingId) {
 
         Booking booking = bookings.get(bookingId);
-
         if (booking == null) return false;
 
         Appointment ap = appointments.get(booking.getAppointmentId());
-
         if (ap != null) {
             ap.setAvailable(true);
+            ap.setBookedBy(null); // 🔥 reset
         }
 
         bookings.remove(bookingId);
-
-        // 🔔 notify επόμενο χρήστη
-        notifyWaitlist(booking.getAppointmentId());
-
         return true;
     }
 

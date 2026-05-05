@@ -24,7 +24,11 @@ public interface RemoteInterface extends Remote {
 
     List<Appointment> getAvailableAppointments() throws RemoteException;
 
+    List<Appointment> getUserAppointments(String username) throws RemoteException;
+
     boolean bookAppointment(String username, int appointmentId) throws RemoteException;
+
+    int getBookingId(String username, int appointmentId) throws RemoteException;
 
     boolean cancelBooking(int bookingId) throws RemoteException;
 

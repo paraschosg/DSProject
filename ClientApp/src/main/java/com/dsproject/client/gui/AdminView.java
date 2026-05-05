@@ -2,6 +2,7 @@ package com.dsproject.client.gui;
 
 import com.dsproject.client.controller.ClientController;
 import com.dsproject.server.models.Doctor;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -13,23 +14,38 @@ public class AdminView {
 
     public AdminView(Stage stage, ClientController controller, String username) {
 
-        Label title = new Label("Admin Dashboard - " + username);
-        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+        // ================= SIDEBAR =================
+        VBox sidebar = new VBox(15);
+        sidebar.setPadding(new Insets(20));
+        sidebar.setPrefWidth(180);
+        sidebar.setStyle("-fx-background-color: #e57363;");
 
+        Label menuTitle = new Label("Admin Panel");
+        menuTitle.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
+
+        Button dashboardBtn = new Button("Dashboard");
+        Button appointmentsBtn = new Button("Appointments");
+        Button addAppointmentBtn = new Button("Add Appointment");
         Button logoutBtn = new Button("Logout");
 
-        BorderPane topPanel = new BorderPane();
-        topPanel.setCenter(title);
-        topPanel.setRight(logoutBtn);
+        String sideBtnStyle = "-fx-background-color: #333; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 140px;";
+        dashboardBtn.setStyle(sideBtnStyle);
+        appointmentsBtn.setStyle(sideBtnStyle);
+        addAppointmentBtn.setStyle(sideBtnStyle);
+        logoutBtn.setStyle(sideBtnStyle);
 
-        Button viewAppointmentsBtn = new Button("View Appointments");
-        Button addAppointmentBtn = new Button("Add Appointment");
+        sidebar.getChildren().addAll(menuTitle, dashboardBtn, appointmentsBtn, addAppointmentBtn, logoutBtn);
 
-        viewAppointmentsBtn.setPrefWidth(180);
-        addAppointmentBtn.setPrefWidth(180);
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: #f8f9fa;");
 
-        HBox buttonsPanel = new HBox(20, viewAppointmentsBtn, addAppointmentBtn);
-        buttonsPanel.setAlignment(Pos.CENTER);
+        Label welcome = new Label("Welcome, " + username);
+        welcome.setStyle("-fx-text-fill: black; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        GridPane form = new GridPane();
+        form.setHgap(10);
+        form.setVgap(10);
 
         TextField nameField = new TextField();
         TextField specialtyField = new TextField();
@@ -38,56 +54,68 @@ public class AdminView {
         TextField emailField = new TextField();
         TextField costField = new TextField();
 
-        GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(10);
+        Label l1 = new Label("Doctor Name:");
+        Label l2 = new Label("Specialty:");
+        Label l3 = new Label("Department:");
+        Label l4 = new Label("Phone:");
+        Label l5 = new Label("Email:");
+        Label l6 = new Label("Visit Cost:");
 
-        form.add(new Label("Doctor Name:"), 0, 0);
+        String labelStyle = "-fx-text-fill: black;";
+        l1.setStyle(labelStyle);
+        l2.setStyle(labelStyle);
+        l3.setStyle(labelStyle);
+        l4.setStyle(labelStyle);
+        l5.setStyle(labelStyle);
+        l6.setStyle(labelStyle);
+
+        form.add(l1, 0, 0);
         form.add(nameField, 1, 0);
 
-        form.add(new Label("Specialty:"), 0, 1);
+        form.add(l2, 0, 1);
         form.add(specialtyField, 1, 1);
 
-        form.add(new Label("Department:"), 0, 2);
+        form.add(l3, 0, 2);
         form.add(departmentField, 1, 2);
 
-        form.add(new Label("Phone:"), 0, 3);
+        form.add(l4, 0, 3);
         form.add(phoneField, 1, 3);
 
-        form.add(new Label("Email:"), 0, 4);
+        form.add(l5, 0, 4);
         form.add(emailField, 1, 4);
 
-        form.add(new Label("Visit Cost:"), 0, 5);
+        form.add(l6, 0, 5);
         form.add(costField, 1, 5);
 
-        Button addButton = new Button("Add Doctor");
-        addButton.setPrefWidth(150);
+        Button addBtn = new Button("Add Doctor");
+        addBtn.setStyle("-fx-background-color: #2c7be5; -fx-text-fill: white; -fx-font-weight: bold;");
 
-        form.add(new Label(""), 0, 6);
-        form.add(addButton, 1, 6);
+        form.add(addBtn, 1, 6);
 
-        VBox root = new VBox(20, topPanel, buttonsPanel, form);
-        root.setPadding(new Insets(20));
+        content.getChildren().addAll(welcome, form);
 
-        Scene scene = new Scene(root, 550, 450);
+        BorderPane root = new BorderPane();
+        root.setLeft(sidebar);
+        root.setCenter(content);
 
-        stage.setTitle("Admin Panel");
+        Scene scene = new Scene(root, 800, 500);
+
+        stage.setTitle("Admin Dashboard");
         stage.setScene(scene);
-        stage.show();
 
         logoutBtn.setOnAction(e -> {
             new LoginView(stage, controller);
         });
 
-        viewAppointmentsBtn.setOnAction(e -> {
-            new AppointmentView(stage, controller, username);
+        appointmentsBtn.setOnAction(e -> {
+            new AppointmentView(stage, controller, username, true);
         });
 
         addAppointmentBtn.setOnAction(e -> {
             new AddAppointmentView(stage, controller);
         });
 
-        addButton.setOnAction(e -> {
+        addBtn.setOnAction(e -> {
 
             String name = nameField.getText();
             String specialty = specialtyField.getText();
@@ -99,7 +127,7 @@ public class AdminView {
             if (name.isEmpty() || specialty.isEmpty() || department.isEmpty()
                     || phone.isEmpty() || email.isEmpty() || costText.isEmpty()) {
 
-                new Alert(Alert.AlertType.ERROR, "Fill all fields!").show();
+                showAlert("Error", "Fill all fields!");
                 return;
             }
 
@@ -108,7 +136,7 @@ public class AdminView {
             try {
                 cost = Double.parseDouble(costText);
             } catch (Exception ex) {
-                new Alert(Alert.AlertType.ERROR, "Cost must be a number!").show();
+                showAlert("Error", "Cost must be a number!");
                 return;
             }
 
@@ -124,7 +152,7 @@ public class AdminView {
             boolean result = controller.addDoctor(doctor, "admin");
 
             if (result) {
-                new Alert(Alert.AlertType.INFORMATION, "Doctor added!").show();
+                showAlert("Success", "Doctor added!");
 
                 nameField.clear();
                 specialtyField.clear();
@@ -134,8 +162,16 @@ public class AdminView {
                 costField.clear();
 
             } else {
-                new Alert(Alert.AlertType.ERROR, "Failed!").show();
+                showAlert("Error", "Failed!");
             }
         });
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }

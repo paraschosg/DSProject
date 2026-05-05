@@ -3,10 +3,10 @@ package com.dsproject.client.controller;
 import com.dsproject.rmi.RMIClient;
 import com.dsproject.server.models.User;
 import com.dsproject.server.models.Doctor;
+import com.dsproject.server.models.Appointment;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import com.dsproject.server.models.Appointment;
 
 public class ClientController {
 
@@ -44,8 +44,16 @@ public class ClientController {
         return rmiClient.bookAppointment(username, appointmentId);
     }
 
+    public int getBookingId(String username, int appointmentId) {
+        return rmiClient.getBookingId(username, appointmentId);
+    }
+
     public List<Appointment> getAvailableAppointments() {
         return rmiClient.getAvailableAppointments();
+    }
+
+    public List<Appointment> getUserAppointments(String username) {
+        return rmiClient.getUserAppointments(username);
     }
 
     public boolean cancelBooking(int bookingId) {
