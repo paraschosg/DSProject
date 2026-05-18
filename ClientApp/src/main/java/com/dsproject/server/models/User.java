@@ -82,7 +82,7 @@ public class User implements Serializable {
         this.role = role;
     }
 
-    @Override
+    @Override //Η μέθοδος toString της κλάσης User επιστρέφει μια συμβολοσειρά που περιέχει τις βασικές πληροφορίες του χρήστη
     public String toString() {
         return "User{" +
                 "fullName='" + fullName + '\'' +

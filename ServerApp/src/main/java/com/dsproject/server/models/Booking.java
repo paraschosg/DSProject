@@ -4,7 +4,7 @@ import java.io.Serializable;
 
 public class Booking implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L; //θετουμε serialVersionUID για να διασφαλίσουμε τη συμβατότητα κατά τη σειριοποίηση
 
     private int id;
     private String username;
@@ -47,5 +47,5 @@ public class Booking implements Serializable {
                 ", username='" + username + '\'' +
                 ", appointmentId=" + appointmentId +
                 '}';
-    }
+    } //κατασκευαστής, getters, setters και toString μέθοδος
 }

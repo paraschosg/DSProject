@@ -13,20 +13,20 @@ public class RMIClient {
 
     private RemoteInterface remote;
 
-    public RMIClient() {
+    public RMIClient() { //Constructor που συνδέεται με τον RMI Server
         try {
-            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            remote = (RemoteInterface) registry.lookup("ServerService");
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099); //Συνδέεται με το RMI registry στον localhost και την προεπιλεγμένη θύρα 1099
+            remote = (RemoteInterface) registry.lookup("ServerService"); //Αναζητά το απομακρυσμένο αντικείμενο με το όνομα "ServerService" και το αποθηκεύει στο πεδίο remote
 
-            System.out.println("Connected to RMI Server!");
+            System.out.println("Connected to RMI Server");
 
-        } catch (Exception e) {
-            System.out.println("Connection to server failed...");
+        } catch (Exception e) { //Εάν η σύνδεση αποτύχει, εκτυπώνει ένα μήνυμα σφάλματος και το stack trace
+            System.out.println("Connection to server failed");
             e.printStackTrace();
         }
     }
 
-    public User login(String username, String password) {
+    public User login(String username, String password) { //Καλεί τη μέθοδο login του απομακρυσμένου αντικειμένου, περνώντας το όνομα χρήστη και τον κωδικό πρόσβασης. Επιστρέφει ένα αντικείμενο User εάν η σύνδεση είναι επιτυχής, ή null εάν αποτύχει
         try {
             return remote.login(username, password);
         } catch (Exception e) {
@@ -35,7 +35,7 @@ public class RMIClient {
         return null;
     }
 
-    public boolean register(User user) {
+    public boolean register(User user) { //Καλεί τη μέθοδο register του απομακρυσμένου αντικειμένου, περνώντας ένα αντικείμενο User. Επιστρέφει true εάν η εγγραφή είναι επιτυχής, ή false εάν αποτύχει
         try {
             return remote.register(user);
         } catch (Exception e) {
@@ -44,7 +44,7 @@ public class RMIClient {
         return false;
     }
 
-    public boolean deleteUser(String username) {
+    public boolean deleteUser(String username) { //Καλεί τη μέθοδο deleteUser του απομακρυσμένου αντικειμένου, περνώντας το όνομα χρήστη. Επιστρέφει true εάν η διαγραφή είναι επιτυχής, ή false εάν αποτύχει
         try {
             return remote.deleteUser(username);
         } catch (Exception e) {
@@ -53,7 +53,7 @@ public class RMIClient {
         return false;
     }
 
-    public boolean addDoctor(Doctor doctor, String role) {
+    public boolean addDoctor(Doctor doctor, String role) { //Καλεί τη μέθοδο addDoctor του απομακρυσμένου αντικειμένου, περνώντας ένα αντικείμενο Doctor και έναν ρόλο. Επιστρέφει true εάν η προσθήκη είναι επιτυχής, ή false εάν αποτύχει
         try {
             return remote.addDoctor(doctor, role);
         } catch (Exception e) {
@@ -62,6 +62,7 @@ public class RMIClient {
         return false;
     }
 
+    //Καλεί τη μέθοδο addAppointment του απομακρυσμένου αντικειμένου, περνώντας το όνομα του γιατρού, την ημερομηνία και ώρα του ραντεβού, τη διάρκεια και το κόστος. Επιστρέφει το ID του νέου ραντεβού εάν η προσθήκη είναι επιτυχής, ή -1 εάν αποτύχει
     public int addAppointment(String doctor, LocalDateTime date, int duration, double cost) {
         try {
             return remote.addAppointment(doctor, date, duration, cost);
@@ -71,7 +72,7 @@ public class RMIClient {
         return -1;
     }
 
-    public List<Appointment> getUserAppointments(String username) {
+    public List<Appointment> getUserAppointments(String username) { //Καλεί τη μέθοδο getUserAppointments του απομακρυσμένου αντικειμένου, περνώντας το όνομα χρήστη. Επιστρέφει μια λίστα με τα ραντεβού του χρήστη εάν η ανάκτηση είναι επιτυχής, ή null εάν αποτύχει
         try {
             return remote.getUserAppointments(username);
         } catch (Exception e) {
@@ -120,9 +121,9 @@ public class RMIClient {
 
     public void registerCallback(String username) {
         try {
-            CallbackImpl callback = new CallbackImpl();
-            remote.registerCallback(username, callback);
-            System.out.println("Callback registered!");
+            CallbackImpl callback = new CallbackImpl(); //Δημιουργεί μια νέα υλοποίηση του CallbackImpl η οποία θα χειρίζεται τις κλήσεις επιστροφής από τον server
+            remote.registerCallback(username, callback); //Καλεί τη μέθοδο registerCallback του απομακρυσμένου αντικειμένου, περνώντας το όνομα χρήστη και την υλοποίηση του callback. Αυτό επιτρέπει στον server να ενημερώνει τον client για αλλαγές στα ραντεβού
+            System.out.println("Callback registered");
         } catch (Exception e) {
             e.printStackTrace();
         }

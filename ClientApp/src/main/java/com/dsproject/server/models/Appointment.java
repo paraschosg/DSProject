@@ -7,6 +7,7 @@ public class Appointment implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    //Η κλάση Appointment αντιπροσωπεύει ένα ραντεβού με έναν γιατρό. Περιέχει πληροφορίες όπως το όνομα του γιατρού, την ημερομηνία και ώρα του ραντεβού, τη διάρκεια, το κόστος, και αν είναι διαθέσιμο ή όχι. Επίσης, περιέχει πληροφορίες για το ποιος έχει κλείσει το ραντεβού.
     private int id;
     private String doctorName;
     private LocalDateTime dateTime;
@@ -15,6 +16,7 @@ public class Appointment implements Serializable {
     private boolean available;
     private String bookedBy;
 
+    //Ο constructor της κλάσης Appointment αρχικοποιεί τα πεδία της κλάσης με τις τιμές που δίνονται ως παραμέτρους
     public Appointment(int id, String doctorName, LocalDateTime dateTime,
                        int duration, double cost) {
 
@@ -26,6 +28,7 @@ public class Appointment implements Serializable {
         this.available = true;
     }
 
+    //Οι μέθοδοι getter και setter της κλάσης Appointment επιτρέπουν την πρόσβαση και την τροποποίηση των πεδίων της κλάσης
     public void setBookedBy(String bookedBy) {
         this.bookedBy = bookedBy;
     }
@@ -62,7 +65,7 @@ public class Appointment implements Serializable {
         return bookedBy;
     }
 
-    @Override
+    @Override //Η μέθοδος toString της κλάσης Appointment επιστρέφει μια συμβολοσειρά που περιέχει τις βασικές πληροφορίες του ραντεβού
     public String toString() {
         return id + " | " + doctorName + " | " + dateTime + " | " + cost + "€";
     }

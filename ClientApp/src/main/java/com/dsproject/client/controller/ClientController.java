@@ -8,15 +8,15 @@ import com.dsproject.server.models.Appointment;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public class ClientController {
+public class ClientController { //ο controller που συνδέει το GUI με την RMIClient για να εκτελεί τις λειτουργίες που απαιτούνται από τον χρήστη
 
     private RMIClient rmiClient;
 
-    public ClientController() {
+    public ClientController() { //δημιουργεί ένα νέο RMIClient για να επικοινωνεί με τον server
         rmiClient = new RMIClient();
     }
 
-    public void registerCallback(String username) {
+    public void registerCallback(String username) { //καταχωρεί τον callback του χρήστη για να λαμβάνει ενημερώσεις
         rmiClient.registerCallback(username);
     }
 

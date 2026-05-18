@@ -10,6 +10,7 @@ import java.rmi.RemoteException;
 import java.time.LocalDateTime;
 import java.util.List;
 
+//Η RemoteInterface ορίζει τις μεθόδους που μπορούν να κληθούν απομακρυσμένα από τον client. Περιλαμβάνει λειτουργίες για login, registration, διαχείριση ραντεβού και callback notifications.
 public interface RemoteInterface extends Remote {
 
     User login(String username, String password) throws RemoteException;

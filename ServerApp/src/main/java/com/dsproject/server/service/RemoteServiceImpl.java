@@ -17,8 +17,8 @@ public class RemoteServiceImpl extends UnicastRemoteObject implements RemoteInte
     private ServerController controller;
     private WorkerClient workerClient;
 
-    public RemoteServiceImpl() throws RemoteException {
-        super();
+    public RemoteServiceImpl() throws RemoteException { //Ο constructor καλεί τον constructor της UnicastRemoteObject και δημιουργεί instances του ServerController και WorkerClient για να χειρίζεται τις αιτήσεις και να επικοινωνεί με τους workers
+        super(); //Κλήση του constructor της UnicastRemoteObject για να γίνει το αντικείμενο διαθέσιμο για remote calls
         controller = new ServerController();
         workerClient = new WorkerClient();
     }

@@ -9,7 +9,7 @@ import java.rmi.RemoteException;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface RemoteInterface extends Remote {
+public interface RemoteInterface extends Remote { //Αυτή η διεπαφή ορίζει τις μεθόδους που θα καλεί ο client για να αλληλεπιδράσει με τον server. Περιλαμβάνει μεθόδους για login, εγγραφή, διαχείριση ραντεβού και άλλες λειτουργίες που απαιτούνται από την εφαρμογή
 
     User login(String username, String password) throws RemoteException;
 
