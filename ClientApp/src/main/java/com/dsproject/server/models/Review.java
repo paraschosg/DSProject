@@ -20,11 +20,11 @@ public class Review implements Serializable {
         this.patientUsername = patientUsername;
     }
 
-    public int getBookingId()        { return bookingId; }
-    public String getDoctorName()    { return doctorName; }
-    public int getRating()           { return rating; }
-    public String getComment()       { return comment; }
-    public String getPatientUsername(){ return patientUsername; }
+    public int    getBookingId()         { return bookingId; }
+    public String getDoctorName()        { return doctorName; }
+    public int    getRating()            { return rating; }
+    public String getComment()           { return comment; }
+    public String getPatientUsername()   { return patientUsername; }
 
     @Override
     public String toString() {

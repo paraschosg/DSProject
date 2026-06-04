@@ -5,23 +5,22 @@ import java.util.Queue;
 
 public class Waitlist {
 
-    private int appointmentId;
-    private Queue<String> users;
+    private final int appointmentId;
+    private final Queue<String> users = new LinkedList<>();
 
     public Waitlist(int appointmentId) {
         this.appointmentId = appointmentId;
-        this.users = new LinkedList<>();
     }
 
-    public void addUser(String username) {
-        users.add(username);
-    }
+    public void addUser(String username) { users.add(username); }
 
-    public String getNextUser() {
-        return users.poll();
-    }
+    /** Removes and returns the next user in the FIFO queue, or null if empty. */
+    public String getNextUser()          { return users.poll(); }
 
-    public boolean isEmpty() {
-        return users.isEmpty();
-    }
+    /** Peeks at the next user without removing them. */
+    public String peekNextUser()         { return users.peek(); }
+
+    public boolean isEmpty()             { return users.isEmpty(); }
+
+    public int getAppointmentId()        { return appointmentId; }
 }

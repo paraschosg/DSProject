@@ -1,36 +1,44 @@
 package com.dsproject.rmi;
 
-import com.dsproject.server.models.User;
-import com.dsproject.server.models.Doctor;
 import com.dsproject.server.models.Appointment;
+import com.dsproject.server.models.Doctor;
+import com.dsproject.server.models.Review;
+import com.dsproject.server.models.User;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface RemoteInterface extends Remote { //Αυτή η διεπαφή ορίζει τις μεθόδους που θα καλεί ο client για να αλληλεπιδράσει με τον server. Περιλαμβάνει μεθόδους για login, εγγραφή, διαχείριση ραντεβού και άλλες λειτουργίες που απαιτούνται από την εφαρμογή
+public interface RemoteInterface extends Remote {
 
-    User login(String username, String password) throws RemoteException;
+    // Auth
+    User    login(String username, String password) throws RemoteException;
+    boolean register(User user)                    throws RemoteException;
+    boolean deleteUser(String username)            throws RemoteException;
 
-    boolean register(User user) throws RemoteException;
+    // Doctors
+    boolean      addDoctor(Doctor doctor, String role) throws RemoteException;
+    List<Doctor> getDoctors()                          throws RemoteException;
 
-    boolean deleteUser(String username) throws RemoteException;
+    // Appointments (admin)
+    int     addAppointment(String doctorName, LocalDateTime dateTime, int duration, double cost) throws RemoteException;
+    boolean updateAppointment(int appointmentId, LocalDateTime newDateTime, double newCost)      throws RemoteException;
+    boolean deleteAppointment(int appointmentId)                                                 throws RemoteException;
+    List<Appointment> getAllAppointments()                                                        throws RemoteException;
 
-    boolean addDoctor(Doctor doctor, String role) throws RemoteException;
+    // Appointments (patient)
+    List<Appointment> getAvailableAppointments()              throws RemoteException;
+    List<Appointment> getUserAppointments(String username)    throws RemoteException;
+    boolean           bookAppointment(String username, int appointmentId) throws RemoteException;
+    int               getBookingId(String username, int appointmentId)    throws RemoteException;
+    boolean           cancelBooking(int bookingId)                        throws RemoteException;
 
-    int addAppointment(String doctorName, LocalDateTime dateTime, int duration, double cost) throws RemoteException;
+    // Reviews
+    boolean      submitReview(int bookingId, int rating, String comment) throws RemoteException;
+    List<Review> getDoctorReviews(String doctorName)                     throws RemoteException;
+    List<Review> getAllReviews()                                          throws RemoteException;
 
-    List<Appointment> getAvailableAppointments() throws RemoteException;
-
-    List<Appointment> getUserAppointments(String username) throws RemoteException;
-
-    boolean bookAppointment(String username, int appointmentId) throws RemoteException;
-
-    int getBookingId(String username, int appointmentId) throws RemoteException;
-
-    boolean cancelBooking(int bookingId) throws RemoteException;
-
+    // Callbacks
     void registerCallback(String username, CallbackInterface callback) throws RemoteException;
-
 }

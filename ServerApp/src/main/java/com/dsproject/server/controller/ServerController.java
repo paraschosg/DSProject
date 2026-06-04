@@ -5,106 +5,204 @@ import com.dsproject.rmi.CallbackInterface;
 import com.dsproject.server.service.WorkerClient;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class ServerController { //η κλάση αυτή είναι ο κεντρικός ελεγκτής της εφαρμογής του server. Διαχειρίζεται τους χρήστες, τους γιατρούς, τα ραντεβού, τις κρατήσεις και τις λίστες αναμονής. Επίσης, επικοινωνεί με τον worker για να εκτελεί τις εργασίες και να ενημερώνει τους χρήστες μέσω callbacks
+/**
+ * Central controller for the 1st server.
+ * All shared state uses ConcurrentHashMap and AtomicInteger for thread safety.
+ * bookAppointment and cancelBooking are synchronized on the Appointment object
+ * to prevent race conditions (double-booking, concurrent cancellation).
+ */
+public class ServerController {
 
-    private HashMap<String, User> users; //χρησιμοποιώ HashMap για να αποθηκεύω τους χρήστες με κλειδί το username, ώστε να μπορώ να κάνω γρήγορη αναζήτηση κατά το login και την εγγραφή
-    private ArrayList<Doctor> doctors; //χρησιμοποιώ ArrayList για να αποθηκεύω τους γιατρούς, καθώς δεν χρειάζομαι γρήγορη αναζήτηση με κλειδί, αλλά απλά μια λίστα με όλους τους γιατρούς
+    // Thread-safe in-memory stores
+    private final Map<String, User>              users       = new ConcurrentHashMap<>();
+    private final Map<Integer, Appointment>      appointments = new ConcurrentHashMap<>();
+    private final Map<Integer, Booking>          bookings    = new ConcurrentHashMap<>();
+    private final Map<Integer, Waitlist>         waitlists   = new ConcurrentHashMap<>();
+    private final Map<String, CallbackInterface> callbacks   = new ConcurrentHashMap<>();
+    private final List<Doctor>  doctors = Collections.synchronizedList(new ArrayList<>());
+    private final List<Review>  reviews = Collections.synchronizedList(new ArrayList<>());
 
-    private HashMap<Integer, Booking> bookings;
-    private HashMap<Integer, Waitlist> waitlists;
-    private HashMap<String, CallbackInterface> callbacks;
+    private final AtomicInteger appointmentCounter = new AtomicInteger(1);
+    private final AtomicInteger bookingCounter     = new AtomicInteger(1);
 
-    private WorkerClient workerClient = new WorkerClient(); //δημιουργώ ένα instance του WorkerClient για να μπορώ να στέλνω αιτήσεις στον worker και να λαμβάνω απαντήσεις
+    private final WorkerClient workerClient = new WorkerClient();
 
-    private HashMap<Integer, Appointment> appointments;
+    public ServerController() {
+        // Load persisted state from WorkerApp
+        loadUsersFromWorker();
+        loadDoctorsFromWorker();
+        loadAppointmentsFromWorker();
+        loadBookingsFromWorker();
+        loadReviewsFromWorker();
 
-    private int appointmentCounter = 1;
-    private int bookingCounter = 1;
-
-    public ServerController() { //στο constructor αρχικοποιώ τις δομές δεδομένων και προσθέτω έναν admin χρήστη και μερικά ραντεβού για δοκιμή
-
-        users = new HashMap<>();
-        doctors = new ArrayList<>();
-        appointments = new HashMap<>();
-        bookings = new HashMap<>();
-        waitlists = new HashMap<>();
-
-        //Προσθέτουμε έναν admin χρήστη για δοκιμή
-        users.put("admin", new User("Admin", "000", "000", "admin@mail.com",
-                "admin", "1234", "admin"));
-
-        //Προσθέτουμε μερικά ραντεβού για δοκιμή
-        appointments.put(appointmentCounter, new Appointment(
-                appointmentCounter++, "Doctor A",
-                LocalDateTime.now().plusDays(1),
-                30, 50));
-
-        //Προσθέτουμε ένα ραντεβού που είναι ήδη κλεισμένο για να δοκιμάσουμε τη λίστα αναμονής
-        appointments.put(appointmentCounter, new Appointment(
-                appointmentCounter++, "Doctor B",
-                LocalDateTime.now().plusDays(2),
-                45, 70));
+        // Guarantee admin exists in memory
+        users.putIfAbsent("admin", new User("Admin", "000000000000000", "0000000000",
+                "admin@clinic.com", "admin", "1234", "admin"));
     }
 
-    public User login(String username, String password) { //η μέθοδος αυτή ελέγχει αν υπάρχει ο χρήστης με το δοσμένο username και αν ο κωδικός είναι σωστός. Αν ναι, επιστρέφει το αντικείμενο User, αλλιώς επιστρέφει null
+    // ==================== STARTUP LOADERS ====================
 
-        if (users.containsKey(username)) {
-            User user = users.get(username);
-
-            if (user.getPassword().equals(password)) {
-                return user;
-            }
+    private void loadUsersFromWorker() {
+        try {
+            for (User u : workerClient.getAllUsers()) users.put(u.getUsername(), u);
+            System.out.println("[Server] Loaded " + users.size() + " users from Worker.");
+        } catch (Exception e) {
+            System.err.println("[Server] Could not load users from Worker: " + e.getMessage());
         }
+    }
 
-        return null;
+    private void loadDoctorsFromWorker() {
+        try {
+            doctors.addAll(workerClient.getAllDoctors());
+            System.out.println("[Server] Loaded " + doctors.size() + " doctors from Worker.");
+        } catch (Exception e) {
+            System.err.println("[Server] Could not load doctors from Worker: " + e.getMessage());
+        }
+    }
+
+    private void loadAppointmentsFromWorker() {
+        try {
+            for (Appointment a : workerClient.getAllAppointments()) {
+                appointments.put(a.getId(), a);
+                if (a.getId() >= appointmentCounter.get())
+                    appointmentCounter.set(a.getId() + 1);
+            }
+            System.out.println("[Server] Loaded " + appointments.size() + " appointments from Worker.");
+        } catch (Exception e) {
+            System.err.println("[Server] Could not load appointments from Worker: " + e.getMessage());
+        }
+    }
+
+    private void loadBookingsFromWorker() {
+        try {
+            for (Booking b : workerClient.getAllBookings()) {
+                bookings.put(b.getId(), b);
+                if (b.getId() >= bookingCounter.get())
+                    bookingCounter.set(b.getId() + 1);
+            }
+            System.out.println("[Server] Loaded " + bookings.size() + " bookings from Worker.");
+        } catch (Exception e) {
+            System.err.println("[Server] Could not load bookings from Worker: " + e.getMessage());
+        }
+    }
+
+    private void loadReviewsFromWorker() {
+        try {
+            reviews.addAll(workerClient.getAllReviews());
+            System.out.println("[Server] Loaded " + reviews.size() + " reviews from Worker.");
+        } catch (Exception e) {
+            System.err.println("[Server] Could not load reviews from Worker: " + e.getMessage());
+        }
+    }
+
+    // ==================== USER OPERATIONS ====================
+
+    public User login(String username, String password) {
+        User user = users.get(username);
+        return (user != null && user.getPassword().equals(password)) ? user : null;
     }
 
     public boolean register(User user) {
-
-        String request = "register;" + user.getUsername() + ";" + user.getPassword();
-
-        String response = workerClient.sendRequest(request);
-
-        if (response.equals("OK")) {
+        if (users.containsKey(user.getUsername())) return false;
+        String request = "register;" + user.getUsername() + ";" + user.getPassword() + ";"
+                + user.getFullName() + ";" + user.getAmka() + ";" + user.getPhone() + ";"
+                + user.getEmail() + ";" + user.getRole();
+        if ("OK".equals(workerClient.sendRequest(request))) {
             users.put(user.getUsername(), user);
             return true;
         }
-
         return false;
     }
 
-    public boolean addDoctor(Doctor doctor, String role) {
+    public boolean deleteUser(String username) {
+        if (workerClient.deleteUser(username)) {
+            users.remove(username);
+            callbacks.remove(username);
+            return true;
+        }
+        return false;
+    }
 
-        if (!role.equals("admin")) {
-            return false;
+    // ==================== DOCTOR OPERATIONS ====================
+
+    public boolean addDoctor(Doctor doctor, String role) {
+        if (!"admin".equals(role)) return false;
+        String request = "addDoctor;" + doctor.getFullName() + ";" + doctor.getSpecialty() + ";"
+                + doctor.getDepartment() + ";" + doctor.getPhone() + ";"
+                + doctor.getEmail() + ";" + doctor.getCost();
+        if ("OK".equals(workerClient.sendRequest(request))) {
+            doctors.add(doctor);
+            return true;
+        }
+        return false;
+    }
+
+    public List<Doctor> getDoctors() {
+        return new ArrayList<>(doctors);
+    }
+
+    // ==================== APPOINTMENT OPERATIONS ====================
+
+    public synchronized int addAppointment(String doctorName, LocalDateTime dateTime, int duration, double cost) {
+        int id = appointmentCounter.getAndIncrement();
+        Appointment ap = new Appointment(id, doctorName, dateTime, duration, cost);
+        String request = "addAppointment;" + id + ";" + doctorName + ";" + dateTime + ";" + duration + ";" + cost;
+        if ("OK".equals(workerClient.sendRequest(request))) {
+            appointments.put(id, ap);
+            return id;
+        }
+        appointmentCounter.decrementAndGet();
+        return -1;
+    }
+
+    public boolean updateAppointment(int appointmentId, LocalDateTime newDateTime, double newCost) {
+        Appointment ap = appointments.get(appointmentId);
+        if (ap == null) return false;
+        String request = "updateAppointment;" + appointmentId + ";" + newDateTime + ";" + newCost;
+        if ("OK".equals(workerClient.sendRequest(request))) {
+            ap.setDateTime(newDateTime);
+            ap.setCost(newCost);
+            // Notify booked patient of the change
+            if (ap.getBookedBy() != null) {
+                notifyUser(ap.getBookedBy(), "Your appointment with " + ap.getDoctorName()
+                        + " has been updated. New time: " + newDateTime + ", Cost: " + newCost + "€");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean deleteAppointment(int appointmentId) {
+        Appointment ap = appointments.get(appointmentId);
+        if (ap == null) return false;
+
+        // Find and cancel existing booking → notify patient
+        for (Booking b : new ArrayList<>(bookings.values())) {
+            if (b.getAppointmentId() == appointmentId) {
+                notifyUser(b.getUsername(), "Your appointment with " + ap.getDoctorName()
+                        + " on " + ap.getDateTime() + " was cancelled by admin.");
+                bookings.remove(b.getId());
+                workerClient.sendRequest("cancelBooking;" + b.getId());
+                break;
+            }
         }
 
-        doctors.add(doctor);
+        appointments.remove(appointmentId);
+        waitlists.remove(appointmentId);
+        workerClient.sendRequest("deleteAppointment;" + appointmentId);
         return true;
     }
 
-    public int addAppointment(String doctorName, LocalDateTime dateTime, int duration, double cost) {
-
-        Appointment ap = new Appointment(
-                appointmentCounter++, doctorName, dateTime, duration, cost
-        );
-
-        appointments.put(ap.getId(), ap);
-        return ap.getId();
-    }
-
     public List<Appointment> getAvailableAppointments() {
-
-        System.out.println("Server: appointments = " + appointments.size());
-
         List<Appointment> list = new ArrayList<>();
-
         for (Appointment a : appointments.values()) {
             if (a.isAvailable()) list.add(a);
         }
-
         return list;
     }
 
@@ -112,79 +210,146 @@ public class ServerController { //η κλάση αυτή είναι ο κεντ�
         return new ArrayList<>(appointments.values());
     }
 
+    // ==================== BOOKING OPERATIONS ====================
+
+    /**
+     * Books an appointment. Synchronized on the appointment object to prevent
+     * race conditions (two clients booking the same slot simultaneously).
+     */
     public boolean bookAppointment(String username, int appointmentId) {
-
         Appointment ap = appointments.get(appointmentId);
-
         if (ap == null) return false;
 
-        if (!ap.isAvailable()) { //αν το ραντεβού δεν είναι διαθέσιμο, προσθέτουμε τον χρήστη στη λίστα αναμονής και επιστρέφουμε false
-            addToWaitlist(username, appointmentId);
-            return false;
+        synchronized (ap) {
+            if (!ap.isAvailable()) {
+                addToWaitlist(username, appointmentId);
+                return false;
+            }
+            int bookId = bookingCounter.getAndIncrement();
+            Booking booking = new Booking(bookId, username, appointmentId);
+            bookings.put(bookId, booking);
+            ap.setAvailable(false);
+            ap.setBookedBy(username);
+            workerClient.sendRequest("bookAppointment;" + bookId + ";" + username + ";" + appointmentId);
         }
-
-        //δημιουργούμε μια νέα κράτηση και την αποθηκεύουμε στο HashMap με κλειδί το bookingId, ώστε να μπορούμε να την ακυρώσουμε αργότερα με βάση το bookingId
-        Booking booking = new Booking(bookingCounter++, username, appointmentId);
-        bookings.put(booking.getId(), booking);
-
-        ap.setAvailable(false);
-        ap.setBookedBy(username);
-
         return true;
     }
 
     public int getBookingId(String username, int appointmentId) {
         for (Booking b : bookings.values()) {
-            if (b.getUsername().equals(username) && b.getAppointmentId() == appointmentId) {
+            if (b.getUsername().equals(username) && b.getAppointmentId() == appointmentId)
                 return b.getId();
-            }
         }
         return -1;
     }
 
+    /**
+     * Cancels a booking. Enforces the 24-hour rule: cancellation is rejected
+     * if the appointment is within 24 hours (same-day or less).
+     */
     public boolean cancelBooking(int bookingId) {
-
         Booking booking = bookings.get(bookingId);
         if (booking == null) return false;
 
-        Appointment ap = appointments.get(booking.getAppointmentId()); //αποθηκεύουμε το ραντεβού που αντιστοιχεί στην κράτηση, ώστε να το ενημερώσουμε μετά την ακύρωση της κράτησης
-        if (ap != null) { //αν το ραντεβού υπάρχει, το κάνουμε διαθέσιμο ξανά και αφαιρούμε τον χρήστη που το είχε κλείσει
+        Appointment ap = appointments.get(booking.getAppointmentId());
+        if (ap == null) return false;
+
+        // 24-hour cancellation rule
+        long hoursUntil = ChronoUnit.HOURS.between(LocalDateTime.now(), ap.getDateTime());
+        if (hoursUntil < 24) return false;
+
+        synchronized (ap) {
             ap.setAvailable(true);
             ap.setBookedBy(null);
         }
 
         bookings.remove(bookingId);
+        workerClient.sendRequest("cancelBooking;" + bookingId);
+
+        // Notify waitlist
+        notifyWaitlist(ap.getId());
         return true;
     }
 
-    private void addToWaitlist(String username, int appointmentId) { //η μέθοδος αυτή προσθέτει τον χρήστη στη λίστα αναμονής για το συγκεκριμένο ραντεβού. Αν δεν υπάρχει ήδη λίστα αναμονής για αυτό το ραντεβού, δημιουργεί μια νέα λίστα και την αποθηκεύει στο HashMap με κλειδί το appointmentId
+    // ==================== REVIEW OPERATIONS ====================
 
-        waitlists.putIfAbsent(appointmentId, new Waitlist(appointmentId));
-        waitlists.get(appointmentId).addUser(username);
+    public boolean submitReview(int bookingId, int rating, String comment) {
+        Booking booking = bookings.get(bookingId);
+        if (booking == null) return false;
+
+        Appointment ap = appointments.get(booking.getAppointmentId());
+        if (ap == null) return false;
+
+        // Appointment must be in the past (completed)
+        if (!ap.getDateTime().isBefore(LocalDateTime.now())) return false;
+
+        // Check for duplicate review
+        synchronized (reviews) {
+            for (Review r : reviews) {
+                if (r.getBookingId() == bookingId) return false;
+            }
+            Review review = new Review(bookingId, ap.getDoctorName(), rating, comment, booking.getUsername());
+            reviews.add(review);
+            workerClient.sendRequest("addReview;" + bookingId + ";" + ap.getDoctorName()
+                    + ";" + rating + ";" + comment + ";" + booking.getUsername());
+        }
+        return true;
     }
 
-    private void notifyWaitlist(int appointmentId) { //η μέθοδος αυτή ειδοποιεί τον επόμενο χρήστη στη λίστα αναμονής για το συγκεκριμένο ραντεβού ότι το ραντεβού είναι διαθέσιμο ξανά. Αν δεν υπάρχει λίστα αναμονής ή αν η λίστα είναι άδεια, δεν κάνει τίποτα
-
-        Waitlist wl = waitlists.get(appointmentId); //αποθηκεύουμε τη λίστα αναμονής για το συγκεκριμένο ραντεβού, ώστε να την ελέγξουμε και να πάρουμε τον επόμενο χρήστη
-
-        if (wl == null || wl.isEmpty()) return; //αν δεν υπάρχει λίστα αναμονής ή αν η λίστα είναι άδεια, δεν κάνουμε τίποτα
-
-        String nextUser = wl.getNextUser(); //παίρνουμε τον επόμενο χρήστη από τη λίστα αναμονής, ώστε να τον ειδοποιήσουμε ότι το ραντεβού είναι διαθέσιμο ξανά
-
-        System.out.println("Notify user: " + nextUser);
-
-        CallbackInterface callback = callbacks.get(nextUser); //αποθηκεύουμε το callback του επόμενου χρήστη, ώστε να τον ειδοποιήσουμε μέσω του callback ότι το ραντεβού είναι διαθέσιμο ξανά
-
-        if (callback != null) { //αν υπάρχει callback για τον επόμενο χρήστη, τον ειδοποιούμε μέσω του callback ότι το ραντεβού είναι διαθέσιμο ξανά. Αν δεν υπάρχει callback, δεν κάνουμε τίποτα
-            try {
-                callback.notifyUser("Appointment available again!");
-            } catch (Exception e) {
-                e.printStackTrace();
+    public List<Review> getDoctorReviews(String doctorName) {
+        List<Review> result = new ArrayList<>();
+        synchronized (reviews) {
+            for (Review r : reviews) {
+                if (r.getDoctorName().equals(doctorName)) result.add(r);
             }
         }
+        return result;
     }
+
+    public List<Review> getAllReviews() {
+        return new ArrayList<>(reviews);
+    }
+
+    // ==================== CALLBACK OPERATIONS ====================
 
     public void registerCallback(String username, CallbackInterface callback) {
         callbacks.put(username, callback);
+    }
+
+    // ==================== PRIVATE HELPERS ====================
+
+    private void addToWaitlist(String username, int appointmentId) {
+        waitlists.computeIfAbsent(appointmentId, Waitlist::new).addUser(username);
+    }
+
+    /**
+     * Notifies the first connected patient in the waitlist.
+     * Skips offline patients (no callback registered) and removes them from the queue.
+     */
+    private void notifyWaitlist(int appointmentId) {
+        Waitlist wl = waitlists.get(appointmentId);
+        if (wl == null || wl.isEmpty()) return;
+
+        while (!wl.isEmpty()) {
+            String nextUser = wl.getNextUser();
+            CallbackInterface callback = callbacks.get(nextUser);
+            if (callback != null) {
+                try {
+                    callback.notifyUser("A slot you were waiting for is now available! Book it now.");
+                    break; // Successfully notified one patient
+                } catch (Exception e) {
+                    System.err.println("[Server] Callback failed for " + nextUser);
+                }
+            }
+            // Patient offline or callback failed → try next in queue
+        }
+    }
+
+    private void notifyUser(String username, String message) {
+        CallbackInterface callback = callbacks.get(username);
+        if (callback != null) {
+            try { callback.notifyUser(message); }
+            catch (Exception e) { System.err.println("[Server] Notify failed for " + username); }
+        }
     }
 }

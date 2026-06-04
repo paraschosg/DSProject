@@ -1,19 +1,30 @@
 package com.dsproject.rmi;
 
-import javax.swing.*;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
+
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 
-public class CallbackImpl extends UnicastRemoteObject implements CallbackInterface { //η υλοποίηση της διεπαφής CallbackInterface
+/**
+ * Client-side RMI callback implementation.
+ * Uses Platform.runLater to show JavaFX alerts safely from RMI threads.
+ */
+public class CallbackImpl extends UnicastRemoteObject implements CallbackInterface {
 
-    public CallbackImpl() throws RemoteException { //κατασκευαστής που καλεί τον κατασκευαστή της UnicastRemoteObject
+    public CallbackImpl() throws RemoteException {
         super();
     }
 
-    @Override //η μέθοδος που θα καλείται από τον server για να ενημερώσει τον client
+    @Override
     public void notifyUser(String message) throws RemoteException {
-        System.out.println("Callback received: " + message);
-        JOptionPane.showMessageDialog(null, message);
+        System.out.println("[Callback] " + message);
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Notification");
+            alert.setHeaderText("Server Notification");
+            alert.setContentText(message);
+            alert.show();
+        });
     }
-
 }

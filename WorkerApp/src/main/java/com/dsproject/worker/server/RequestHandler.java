@@ -2,24 +2,68 @@ package com.dsproject.worker.server;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.HashMap;
+import java.util.*;
+import java.util.function.Consumer;
 
-public class RequestHandler implements Runnable { //η κλάση αυτή είναι υπεύθυνη για την επεξεργασία των αιτήσεων που λαμβάνει ο worker από τον server. Κάθε φορά που ο worker λαμβάνει μια αίτηση, δημιουργείται ένα νέο thread με αυτόν τον handler για να επεξεργαστεί την αίτηση και να απαντήσει στον server
+/**
+ * Handles socket requests from the 1st server (ServerApp).
+ * Manages persistent file storage for users, doctors, appointments, bookings, reviews.
+ * All in-memory maps are shared across threads via synchronization.
+ */
+public class RequestHandler implements Runnable {
 
-    private Socket socket;
+    private final Socket socket;
 
-    private static HashMap<String, String> users = new HashMap<>(); //Hashmap που αποθηκεύει τα username και password των χρηστών. Το κλειδί είναι το username και η τιμή είναι το password
+    // Shared in-memory stores (thread-safe via synchronized wrappers)
+    private static final Map<String, String[]> users        = Collections.synchronizedMap(new LinkedHashMap<>());
+    private static final List<String[]>        doctors      = Collections.synchronizedList(new ArrayList<>());
+    private static final Map<Integer, String[]> appointments = Collections.synchronizedMap(new LinkedHashMap<>());
+    private static final Map<Integer, String[]> bookings     = Collections.synchronizedMap(new LinkedHashMap<>());
+    private static final List<String[]>        reviews      = Collections.synchronizedList(new ArrayList<>());
 
-    private static final String FILE_NAME = "users.txt"; //Το όνομα του αρχείου που θα χρησιμοποιείται για την αποθήκευση των χρηστών. Κάθε γραμμή στο αρχείο έχει τη μορφή "username;password"
+    private static final String USERS_FILE        = "users.txt";
+    private static final String DOCTORS_FILE      = "doctors.txt";
+    private static final String APPOINTMENTS_FILE = "appointments.txt";
+    private static final String BOOKINGS_FILE     = "bookings.txt";
+    private static final String REVIEWS_FILE      = "reviews.txt";
 
+    // Load persisted data on first class load
     static {
-        loadUsersFromFile();
+        loadFromFile(USERS_FILE, line -> {
+            String[] p = line.split(";", -1);
+            if (p.length >= 7) users.put(p[0], p);
+        });
+        loadFromFile(DOCTORS_FILE, line -> {
+            String[] p = line.split(";", -1);
+            if (p.length >= 6) doctors.add(p);
+        });
+        loadFromFile(APPOINTMENTS_FILE, line -> {
+            String[] p = line.split(";", -1);
+            if (p.length >= 7) {
+                try { appointments.put(Integer.parseInt(p[0]), p); } catch (NumberFormatException ignored) {}
+            }
+        });
+        loadFromFile(BOOKINGS_FILE, line -> {
+            String[] p = line.split(";", -1);
+            if (p.length >= 3) {
+                try { bookings.put(Integer.parseInt(p[0]), p); } catch (NumberFormatException ignored) {}
+            }
+        });
+        loadFromFile(REVIEWS_FILE, line -> {
+            String[] p = line.split(";", -1);
+            if (p.length >= 5) reviews.add(p);
+        });
 
-        if (!users.containsKey("admin")) { //Προσθέτουμε έναν default admin χρήστη αν δεν υπάρχει ήδη
-            users.put("admin", "1234");
-            saveUserToFile("admin", "1234");
-            System.out.println("Admin user added!");
+        // Ensure default admin exists
+        if (!users.containsKey("admin")) {
+            String[] admin = {"admin", "1234", "Admin", "000000000000000", "0000000000", "admin@clinic.com", "admin"};
+            users.put("admin", admin);
+            appendToFile(USERS_FILE, String.join(";", admin));
+            System.out.println("[Worker] Default admin created.");
         }
+
+        System.out.println("[Worker] Loaded: " + users.size() + " users, "
+                + doctors.size() + " doctors, " + appointments.size() + " appointments.");
     }
 
     public RequestHandler(Socket socket) {
@@ -27,151 +71,276 @@ public class RequestHandler implements Runnable { //η κλάση αυτή εί�
     }
 
     @Override
-    public void run() { //Εδώ γίνεται η επεξεργασία της αίτησης που λαμβάνει ο worker από τον server. Διαβάζει την αίτηση, την αναλύει και απαντάει ανάλογα με το περιεχόμενο της αίτησης (register, login, delete)
-
+    public void run() {
         try (
-                BufferedReader in = new BufferedReader(
-                        new InputStreamReader(socket.getInputStream()));
-
-                PrintWriter out = new PrintWriter(
-                        socket.getOutputStream(), true)
+            BufferedReader in  = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter    out = new PrintWriter(socket.getOutputStream(), true)
         ) {
-
             String request = in.readLine();
+            if (request == null || request.trim().isEmpty()) { out.println("FAIL"); return; }
 
-            if (request == null || request.isEmpty()) { //Αν η αίτηση είναι κενή ή null, απαντάμε με "FAIL" και τερματίζουμε την επεξεργασία
-                out.println("FAIL");
-                return;
+            System.out.println("[Worker] " + request.substring(0, Math.min(request.length(), 100)));
+
+            String[] parts = request.split(";", -1);
+            String cmd = parts[0].trim();
+
+            switch (cmd) {
+                case "register"          -> handleRegister(parts, out);
+                case "login"             -> handleLogin(parts, out);
+                case "delete"            -> handleDeleteUser(parts, out);
+                case "getAllUsers"        -> handleGetAllUsers(out);
+                case "addDoctor"         -> handleAddDoctor(parts, out);
+                case "getAllDoctors"      -> handleGetAllDoctors(out);
+                case "addAppointment"    -> handleAddAppointment(parts, out);
+                case "updateAppointment" -> handleUpdateAppointment(parts, out);
+                case "deleteAppointment" -> handleDeleteAppointment(parts, out);
+                case "getAllAppointments" -> handleGetAllAppointments(out);
+                case "bookAppointment"   -> handleBookAppointment(parts, out);
+                case "cancelBooking"     -> handleCancelBooking(parts, out);
+                case "getAllBookings"     -> handleGetAllBookings(out);
+                case "addReview"         -> handleAddReview(parts, out);
+                case "getAllReviews"      -> handleGetAllReviews(out);
+                default                  -> out.println("UNKNOWN");
             }
-
-            System.out.println("Worker received: " + request);
-
-            String[] parts = request.split(";"); //Η αίτηση χωρίζεται σε μέρη με βάση το ";" ως διαχωριστικό. Το πρώτο μέρος είναι η εντολή (register, login, delete) και τα επόμενα μέρη είναι τα δεδομένα που απαιτούνται για την εκτέλεση της εντολής
-
-            String command = parts[0]; //Η εντολή που ζητάει ο server (register, login, delete)
-
-            switch (command) {
-
-                case "register": { //Αν η εντολή είναι register, ελέγχουμε αν υπάρχουν τα απαραίτητα δεδομένα. Αν όχι, απαντάμε με FAIL. Αν ναι, ελέγχουμε αν το username υπάρχει ήδη. Αν υπάρχει, απαντάμε με FAIL. Αν δεν υπάρχει, προσθέτουμε τον χρήστη στο HashMap και στο αρχείο και απαντάμε με OK
-                    if (parts.length < 3) {
-                        out.println("FAIL");
-                        break;
-                    }
-
-                    String username = parts[1].trim(); //Το username που θέλει να καταχωρήσει ο χρήστης με trim() για να αφαιρέσουμε τυχόν κενά πριν ή μετά το username
-                    String password = parts[2].trim();
-
-                    if (users.containsKey(username)) {
-                        out.println("FAIL");
-                    } else {
-                        users.put(username, password);
-                        saveUserToFile(username, password);
-                        out.println("OK");
-                    }
-                    break;
-                }
-
-                case "login": {
-                    if (parts.length < 3) {
-                        out.println("FAIL");
-                        break;
-                    }
-
-                    String username = parts[1].trim();
-                    String password = parts[2].trim();
-
-                    System.out.println("Trying login: " + username);
-
-                    if (users.containsKey(username)
-                            && users.get(username).equals(password)) {
-                        out.println("OK");
-                    } else {
-                        out.println("FAIL");
-                    }
-                    break;
-                }
-
-                case "delete":
-                    String username = parts[1];
-
-                    if (users.containsKey(username)) {
-                        users.remove(username);
-                        rewriteFile();
-                        out.println("OK");
-                    } else {
-                        out.println("FAIL");
-                    }
-                    break;
-
-                default:
-                    out.println("UNKNOWN");
-            }
-
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            try {
-                socket.close();
-            } catch (Exception ignored) {}
+            try { socket.close(); } catch (Exception ignored) {}
         }
     }
 
+    // ==================== USER HANDLERS ====================
 
-    private static void saveUserToFile(String username, String password) { //Αυτή η μέθοδος προσθέτει έναν νέο χρήστη στο αρχείο users.txt. Χρησιμοποιεί BufferedWriter για να γράψει το username και το password σε μια νέα γραμμή στο αρχείο. Το true στο FileWriter σημαίνει ότι θα προσθέσει στο τέλος του αρχείου αντί να το αντικαταστήσει
-        try (BufferedWriter writer = new BufferedWriter(
-                new FileWriter(FILE_NAME, true))) {
-
-            writer.write(username + ";" + password); //Γράφει το username και το password στο αρχείο με διαχωριστικό ";"
-            writer.newLine();
-
-        } catch (Exception e) {
-            e.printStackTrace();
+    // format: register;username;password;fullName;amka;phone;email;role
+    private void handleRegister(String[] p, PrintWriter out) {
+        if (p.length < 8) { out.println("FAIL"); return; }
+        String username = p[1].trim();
+        synchronized (users) {
+            if (users.containsKey(username)) { out.println("FAIL"); return; }
+            String[] data = {p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim(), p[6].trim(), p[7].trim()};
+            users.put(username, data);
+            appendToFile(USERS_FILE, String.join(";", data));
         }
+        out.println("OK");
     }
 
-    private static void loadUsersFromFile() {
+    private void handleLogin(String[] p, PrintWriter out) {
+        if (p.length < 3) { out.println("FAIL"); return; }
+        String[] user = users.get(p[1].trim());
+        out.println(user != null && user[1].equals(p[2].trim()) ? "OK" : "FAIL");
+    }
+
+    private void handleDeleteUser(String[] p, PrintWriter out) {
+        if (p.length < 2) { out.println("FAIL"); return; }
+        boolean removed;
+        synchronized (users) {
+            removed = users.remove(p[1].trim()) != null;
+            if (removed) rewriteUsersFile();
+        }
+        out.println(removed ? "OK" : "FAIL");
+    }
+
+    // Response: count\nfield1;field2;...\n...
+    private void handleGetAllUsers(PrintWriter out) {
+        List<String[]> all;
+        synchronized (users) { all = new ArrayList<>(users.values()); }
+        out.println(all.size());
+        for (String[] u : all) out.println(String.join(";", u));
+    }
+
+    // ==================== DOCTOR HANDLERS ====================
+
+    // format: addDoctor;fullName;specialty;department;phone;email;cost
+    private void handleAddDoctor(String[] p, PrintWriter out) {
+        if (p.length < 7) { out.println("FAIL"); return; }
+        String[] doc = {p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim(), p[6].trim()};
+        synchronized (doctors) {
+            doctors.add(doc);
+            appendToFile(DOCTORS_FILE, String.join(";", doc));
+        }
+        out.println("OK");
+    }
+
+    private void handleGetAllDoctors(PrintWriter out) {
+        List<String[]> all;
+        synchronized (doctors) { all = new ArrayList<>(doctors); }
+        out.println(all.size());
+        for (String[] d : all) out.println(String.join(";", d));
+    }
+
+    // ==================== APPOINTMENT HANDLERS ====================
+
+    // format: addAppointment;id;doctorName;dateTime;duration;cost
+    // stored : id;doctorName;dateTime;duration;cost;available;bookedBy
+    private void handleAddAppointment(String[] p, PrintWriter out) {
+        if (p.length < 6) { out.println("FAIL"); return; }
         try {
-            File file = new File(FILE_NAME);
-
-            if (!file.exists()) {
-                System.out.println("users.txt not found");
-                return;
+            int id = Integer.parseInt(p[1].trim());
+            String[] ap = {p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim(), "true", ""};
+            synchronized (appointments) {
+                appointments.put(id, ap);
+                rewriteAppointmentsFile();
             }
+            out.println("OK");
+        } catch (NumberFormatException e) { out.println("FAIL"); }
+    }
 
-            BufferedReader reader = new BufferedReader(new FileReader(file));
+    // format: updateAppointment;id;newDateTime;newCost
+    private void handleUpdateAppointment(String[] p, PrintWriter out) {
+        if (p.length < 4) { out.println("FAIL"); return; }
+        try {
+            int id = Integer.parseInt(p[1].trim());
+            synchronized (appointments) {
+                String[] ap = appointments.get(id);
+                if (ap == null) { out.println("FAIL"); return; }
+                ap[2] = p[2].trim(); // dateTime
+                ap[4] = p[3].trim(); // cost
+                rewriteAppointmentsFile();
+            }
+            out.println("OK");
+        } catch (NumberFormatException e) { out.println("FAIL"); }
+    }
 
-            String line;
+    // format: deleteAppointment;id
+    private void handleDeleteAppointment(String[] p, PrintWriter out) {
+        if (p.length < 2) { out.println("FAIL"); return; }
+        try {
+            int id = Integer.parseInt(p[1].trim());
+            synchronized (appointments) {
+                appointments.remove(id);
+                rewriteAppointmentsFile();
+            }
+            out.println("OK");
+        } catch (NumberFormatException e) { out.println("FAIL"); }
+    }
 
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(";");
+    private void handleGetAllAppointments(PrintWriter out) {
+        List<String[]> all;
+        synchronized (appointments) { all = new ArrayList<>(appointments.values()); }
+        out.println(all.size());
+        for (String[] a : all) out.println(String.join(";", a));
+    }
 
-                if (parts.length >= 2) { //Κάθε γραμμή πρέπει να έχει τουλάχιστον δύο μέρη (username και password) για να θεωρηθεί έγκυρη. Αν η γραμμή είναι έγκυρη, προσθέτουμε το username και το password στο HashMap users
-                    users.put(parts[0].trim(), parts[1].trim()); //Το trim() αφαιρεί τυχόν κενά πριν ή μετά το username και το password για να διασφαλίσουμε ότι δεν υπάρχουν περιττά κενά που θα μπορούσαν να προκαλέσουν προβλήματα κατά την επαλήθευση των στοιχείων του χρήστη
+    // ==================== BOOKING HANDLERS ====================
+
+    // format: bookAppointment;bookingId;username;appointmentId
+    private void handleBookAppointment(String[] p, PrintWriter out) {
+        if (p.length < 4) { out.println("FAIL"); return; }
+        try {
+            int bookingId     = Integer.parseInt(p[1].trim());
+            String username   = p[2].trim();
+            int appointmentId = Integer.parseInt(p[3].trim());
+
+            synchronized (bookings) {
+                String[] booking = {p[1].trim(), username, p[3].trim()};
+                bookings.put(bookingId, booking);
+                appendToFile(BOOKINGS_FILE, String.join(";", booking));
+            }
+            synchronized (appointments) {
+                String[] ap = appointments.get(appointmentId);
+                if (ap != null) { ap[5] = "false"; ap[6] = username; rewriteAppointmentsFile(); }
+            }
+            out.println("OK");
+        } catch (NumberFormatException e) { out.println("FAIL"); }
+    }
+
+    // format: cancelBooking;bookingId
+    private void handleCancelBooking(String[] p, PrintWriter out) {
+        if (p.length < 2) { out.println("FAIL"); return; }
+        try {
+            int bookingId = Integer.parseInt(p[1].trim());
+            String[] booking;
+            synchronized (bookings) {
+                booking = bookings.remove(bookingId);
+                if (booking != null) rewriteBookingsFile();
+            }
+            if (booking != null) {
+                int appointmentId = Integer.parseInt(booking[2]);
+                synchronized (appointments) {
+                    String[] ap = appointments.get(appointmentId);
+                    if (ap != null) { ap[5] = "true"; ap[6] = ""; rewriteAppointmentsFile(); }
                 }
             }
-
-            reader.close();
-
-            System.out.println("Loaded users: " + users.keySet()); //Εκτυπώνει τα usernames που φορτώθηκαν από το αρχείο για να έχουμε μια εικόνα των χρηστών που υπάρχουν ήδη
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            out.println("OK");
+        } catch (NumberFormatException e) { out.println("FAIL"); }
     }
 
-    private void rewriteFile() {
+    private void handleGetAllBookings(PrintWriter out) {
+        List<String[]> all;
+        synchronized (bookings) { all = new ArrayList<>(bookings.values()); }
+        out.println(all.size());
+        for (String[] b : all) out.println(String.join(";", b));
+    }
+
+    // ==================== REVIEW HANDLERS ====================
+
+    // format: addReview;bookingId;doctorName;rating;comment;username
+    private void handleAddReview(String[] p, PrintWriter out) {
+        if (p.length < 6) { out.println("FAIL"); return; }
         try {
-            BufferedWriter writer = new BufferedWriter(new FileWriter("users.txt"));
-
-            for (String user : users.keySet()) {
-                writer.write(user + ";" + users.get(user));
-                writer.newLine();
+            int bookingId = Integer.parseInt(p[1].trim());
+            synchronized (reviews) {
+                for (String[] r : reviews) {
+                    if (Integer.parseInt(r[0]) == bookingId) { out.println("FAIL"); return; }
+                }
+                String[] review = {p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim()};
+                reviews.add(review);
+                appendToFile(REVIEWS_FILE, String.join(";", review));
             }
+            out.println("OK");
+        } catch (NumberFormatException e) { out.println("FAIL"); }
+    }
 
-            writer.close();
+    private void handleGetAllReviews(PrintWriter out) {
+        List<String[]> all;
+        synchronized (reviews) { all = new ArrayList<>(reviews); }
+        out.println(all.size());
+        for (String[] r : all) out.println(String.join(";", r));
+    }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    // ==================== FILE HELPERS ====================
+
+    private static void loadFromFile(String filename, Consumer<String> processor) {
+        File file = new File(filename);
+        if (!file.exists()) return;
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty()) {
+                    try { processor.accept(line); } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private static synchronized void appendToFile(String filename, String content) {
+        try (BufferedWriter w = new BufferedWriter(new FileWriter(filename, true))) {
+            w.write(content); w.newLine();
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private static synchronized void rewriteFile(String filename, List<String> lines) {
+        try (BufferedWriter w = new BufferedWriter(new FileWriter(filename))) {
+            for (String line : lines) { w.write(line); w.newLine(); }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void rewriteUsersFile() {
+        List<String> lines = new ArrayList<>();
+        for (String[] u : users.values()) lines.add(String.join(";", u));
+        rewriteFile(USERS_FILE, lines);
+    }
+
+    private void rewriteAppointmentsFile() {
+        List<String> lines = new ArrayList<>();
+        for (String[] a : appointments.values()) lines.add(String.join(";", a));
+        rewriteFile(APPOINTMENTS_FILE, lines);
+    }
+
+    private void rewriteBookingsFile() {
+        List<String> lines = new ArrayList<>();
+        for (String[] b : bookings.values()) lines.add(String.join(";", b));
+        rewriteFile(BOOKINGS_FILE, lines);
     }
 }

@@ -1,1 +1,1 @@
-admin;1234
+admin;1234;Admin;000000000000000;0000000000;admin@clinic.com;admin
